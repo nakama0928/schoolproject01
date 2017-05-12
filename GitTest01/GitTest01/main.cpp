@@ -32,6 +32,7 @@
 
 #include "include.h"
 #include "fromTeacherFanc.h"
+#include "fanc.h"
 
 
 int main(int argc, char **argv)
@@ -39,10 +40,10 @@ int main(int argc, char **argv)
 	int cmd;
 
 	// カメラのチェック
-	if (!cap.isOpened()) {
+	/*if (!cap.isOpened()) {
 		cerr << "カメラが見つかりません" << endl;
 		return 0;
-	}
+	}*/
 
 	// フレームレートの設定(30fps)
 	//cap.set(CV_CAP_PROP_FPS, 30.0); // これを設定すると動作しない（なぜ？）
@@ -52,7 +53,7 @@ int main(int argc, char **argv)
 	while (1) {
 		cout << "********** MENU ***********" << endl;
 		cout << "                           " << endl;
-		cout << " 1:刺激系列生成(実験1用）for C部門2016" << endl;
+		/*cout << " 1:刺激系列生成(実験1用）for C部門2016" << endl;
 		cout << " 2:刺激系列生成(実験2用）for C部門2016" << endl;
 		cout << "                                " << endl;
 		cout << " 3:処理領域の設定" << endl;
@@ -74,12 +75,14 @@ int main(int argc, char **argv)
 		cout << " 51:正答率算出(実験2) for C部門2016" << endl;
 		cout << "                                          " << endl;
 		cout << " 80:BL検出確認実験" << endl;
-		cout << " 90: test" << endl;
+		cout << " 90: test" << endl;*/
+
+		cout << " 1:test000" << endl;
 		cout << " 99:終了" << endl;
 		cout << "***************************" << endl;
 		cout << "Menu=";
 		cin >> cmd;
-		switch (cmd) {
+		/*switch (cmd) {
 		case 1: prep_cb_exp();
 			break;
 		case 2: prep_cb_exp2();
@@ -111,6 +114,10 @@ int main(int argc, char **argv)
 		case 50: analysis1();
 			break;
 		case 51: analysis2();
+			break;
+		}*/
+		switch (cmd) {
+		case 1:  test000();
 			break;
 		}
 		if (cmd == 99)
