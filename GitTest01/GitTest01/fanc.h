@@ -10,7 +10,7 @@
 #define OBDIST 500.0
 #define DIR 8												//方向数
 #define DISP_TIME 1000										//画面に刺激を提示する時間			参考・瞬目にかかる時間：100～150msとする
-#define TOTAL_EXP_TIME 300000								//実験時間：300s（300000ms）
+#define TOTAL_EXP_TIME (5 * 60000)							//実験時間：5m（300000ms）
 #define TIMES 40											//刺激提示回数
 #define EXP_TIME (TOTAL_EXP_TIME - (DISP_TIME * TIMES))		//動作を考慮した実験時間
 #define BLANK_TIME 1500										//画面に何も表示しない時間
@@ -98,7 +98,7 @@ void stiTiming(int timing[TIMES - 1])				//時間はms単位で考える
 	{
 		timing[j] = tim;					//タイミング配列に均等間隔のタイミングを代入する
 	}
-	for (j = 0; j < 100; j++)
+	for (j = 0; j < 50; j++)
 	{
 		repl_time = rng.uniform(1, tim / 2);
 		do
@@ -231,6 +231,11 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 	cout << "---刺激変化検出実験3---" << endl;
 	cout << "実験参加者=";
 	cin >> subnm;
+	cout << "画面中央に十字が表示されるのでそこを注視してください。" << endl << endl <<"注視点(十)が表示された数秒後に刺激が表示されます。" << endl;
+	cout << "約" << TOTAL_EXP_TIME / 60000 << "分間の実験です。" << endl;
+	cout << "刺激は" << TIMES << "回提示されます。" << endl;
+	getchar();
+	getchar();
 
 	// 回答情報記録準備
 	std::string fname;
