@@ -10,7 +10,7 @@
 #define OBDIST 500.0
 #define DIR 8												//方向数
 #define DISP_TIME 1000										//画面に刺激を提示する時間			参考・瞬目にかかる時間：100～150msとする
-#define TOTAL_EXP_TIME (5 * 60000)							//実験時間：5m（300000ms）
+#define TOTAL_EXP_TIME (4 * 60000)							//実験時間：4m（240000ms）
 #define TIMES 40											//刺激提示回数
 #define EXP_TIME (TOTAL_EXP_TIME - (DISP_TIME * TIMES))		//動作を考慮した実験時間
 #define BLANK_TIME 1500										//画面に何も表示しない時間
@@ -28,7 +28,7 @@ Mark c[8];
 
 
 void setArrayEquality(int preSti[TIMES]);				//刺激を均等に割り振る関数，　戻り値：刺激を割り振った配列
-void stiTiming(int timing[TIMES - 1]);					//刺激表示関数
+void stiTiming(int timing[TIMES - 1]);					//刺激表示タイミング生成関数
 int disp(int sti[TIMES], int timing[TIMES - 1], int Count,cv::Mat img1,cv::Mat img2, cv::Mat img3, std::string);	//画面表示用関数（1ループ）
 void show(int preSti[TIMES], int timing[TIMES - 1], int Count);		//画面表示用関数（全体）
 cv::Mat make_window();									//ウィンドウ作成関数
@@ -39,6 +39,7 @@ void mark();											//刺激点位置決定関数
 
 
 
+//刺激均等割り振り
 void setArrayEquality(int preSti[TIMES])
 {
 	//int preSti[TIMES];			//刺激提示方向格納用配列
@@ -83,6 +84,7 @@ void setArrayEquality(int preSti[TIMES])
 
 
 
+//タイミング生成
 void stiTiming(int timing[TIMES - 1])				//時間はms単位で考える
 {
 	//int timing[TIMES - 1];					//刺激表示タイミング格納配列
@@ -118,6 +120,7 @@ void stiTiming(int timing[TIMES - 1])				//時間はms単位で考える
 
 
 
+//画面表示
 int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1, cv::Mat img2, cv::Mat img3, std::string fname)
 {
 	LARGE_INTEGER nFreq, nBefore, nAfter;	//キー入力用変数
@@ -211,6 +214,7 @@ int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1,
 
 
 
+//ファイル書き込み
 void file_write(DWORD dwTime, std::string fname, int dir, int timing, int Count) {
 	
 	std::ofstream fs(fname, std::ios::app);		//ファイルを開く
@@ -231,9 +235,9 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 	cout << "---刺激変化検出実験3---" << endl;
 	cout << "実験参加者=";
 	cin >> subnm;
-	cout << "画面中央に十字が表示されるのでそこを注視してください。" << endl << endl <<"注視点(十)が表示された数秒後に刺激が表示されます。" << endl;
-	cout << "約" << TOTAL_EXP_TIME / 60000 << "分間の実験です。" << endl;
-	cout << "刺激は" << TIMES << "回提示されます。" << endl;
+	cout << endl << endl << "画面中央に十字が表示されるのでそこを注視してください。" << endl <<"注視点(十)が表示された数秒後に刺激が表示されます。" << endl;
+	cout << endl << "約" << TOTAL_EXP_TIME / 60000 << "分間の実験です。" << endl;
+	cout << endl << "刺激は" << TIMES << "回提示されます。" << endl;
 	getchar();
 	getchar();
 
