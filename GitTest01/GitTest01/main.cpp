@@ -2,12 +2,9 @@
 #define _USE_MATH_DEFINES //M_PI
 
 
-//刺激提示回数
-#define TIMES 40
-
-
 #include "stdafx.h"
 #include "fanc.h"
+
 
 
 //グローバル関数
@@ -22,7 +19,15 @@ int main(int argc, char **argv)
 	int preSti[TIMES];
 	int timing[TIMES-1];
 	int Count = 0;				 //実験回数カウント変数
+	int result;
 
+	//カメラ初期化
+	result = init_ID04MB(); // ID04MBカメラの初期化
+	if (result == FALSE) {
+		cout << "ID04MBカメラが初期化できません" << endl;
+		getchar();
+		return 0;
+	}
 
 	while (1) 
 	{

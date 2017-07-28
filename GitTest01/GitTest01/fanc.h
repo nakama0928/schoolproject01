@@ -1,3 +1,5 @@
+#include "UsbCamLib.h"
+
 //define
 //ウィンドウサイズ
 #define window_x 1920
@@ -14,7 +16,7 @@
 #define TIMES 40											//刺激提示回数
 #define EXP_TIME (TOTAL_EXP_TIME - (DISP_TIME * TIMES))		//動作を考慮した実験時間
 #define BLANK_TIME 1500										//画面に何も表示しない時間
-
+#define	CAMERA_NO 0											/* 制御を行うiPokrの番号*/
 
 //構造体
 typedef struct {
@@ -22,6 +24,11 @@ typedef struct {
 	int y; //刺激のy座標
 }Mark;
 
+//グローバル変数定義
+IplImage *pImg;		/* IplImage構造体:OpenCV */
+PVOID pCBuf;
+
+UsbCamLib CamLib;	/* iPokr制御クラス */
 
 using namespace std;
 Mark c[8];
@@ -29,13 +36,17 @@ Mark c[8];
 
 void setArrayEquality(int preSti[TIMES]);				//刺激を均等に割り振る関数，　戻り値：刺激を割り振った配列
 void stiTiming(int timing[TIMES - 1]);					//刺激表示タイミング生成関数
-int disp(int sti[TIMES], int timing[TIMES - 1], int Count,cv::Mat img1,cv::Mat img2, cv::Mat img3, std::string);	//画面表示用関数（1ループ）
+int disp(int sti[TIMES], int timing[TIMES - 1], int Count,cv::Mat img1,cv::Mat img2, cv::Mat img3, cv::Mat img4, std::string);	//画面表示用関数（1ループ）
 void show(int preSti[TIMES], int timing[TIMES - 1], int Count);		//画面表示用関数（全体）
 cv::Mat make_window();									//ウィンドウ作成関数
 cv::Mat make_cross(cv::Mat);							//十字作成関数
 cv::Mat make_circle(cv::Mat img, int Count, int preSti[TIMES]);		//刺激点作成関数
 void file_write(DWORD, std::string, int, int, int);				//ファイル書き込み関数
 void mark();											//刺激点位置決定関数
+int init_ID04MB();										//カメラ初期化関数
+int close_ID04MB();										//カメラ終了関数
+static	void __stdcall FrameEndEvent(void *pInfo);		// 画像取り込みコールバック関数
+cv::Mat make_camera_window();							//カメラ用ウィンドウ作成関数
 
 
 
@@ -121,12 +132,12 @@ void stiTiming(int timing[TIMES - 1])				//時間はms単位で考える
 
 
 //画面表示
-int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1, cv::Mat img2, cv::Mat img3, std::string fname)
+int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1, cv::Mat img2, cv::Mat img3, cv::Mat img4, std::string fname)
 {
 	LARGE_INTEGER nFreq, nBefore, nAfter;	//キー入力用変数
 	DWORD dwTime = 0;
 	int x;									//キー取得変数
-	int elap;
+	int elap = 0;
 
 	memset(&nFreq, 0x00, sizeof nFreq);		//変数初期化
 	memset(&nBefore, 0x00, sizeof nBefore);
@@ -143,7 +154,7 @@ int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1,
 	x = cv::waitKey(DISP_TIME);				//刺激提示時間分キー入力を待つ
 	//x = cv::waitKey(0);		//debug
 	elap = (int)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);
-	if (x == 32)		//27　=　エスケープキー　，32　=　スペースキー　，-1　=　エラー
+	if (x == 32)		//27　=　エスケープキー　，32　=　スペースキー　，-1　=　指定時間経過
 	{
 		QueryPerformanceCounter(&nAfter);	//nAfterにキーを押された時のパフォーマンスカウンタの値を取得
 		dwTime = (DWORD)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);			//dwTimeにnAfter-nBeforeの値を入れる(ms)
@@ -153,11 +164,19 @@ int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1,
 	{
 		return -1;
 	}
+	else if (x == -1)
+	{
+		QueryPerformanceCounter(&nAfter);	//nAfterにキーを押された時のパフォーマンスカウンタの値を取得
+		dwTime = (DWORD)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);			//dwTimeにnAfter-nBeforeの値を入れる(ms)
+		file_write(dwTime, fname, sti[Count], timing[Count], Count);			//ファイルに書き込む
+	}
 
 	while (elap < DISP_TIME - dwTime)		//処理を止めずに時間を計る
 	{
 		QueryPerformanceCounter(&nAfter);
 		elap = (int)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);
+
+		img4 = cv::cvarrToMat(pImg);
 
 		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)			//ループを抜ける
 		{
@@ -182,6 +201,8 @@ int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1,
 		QueryPerformanceCounter(&nAfter);
 		elap = (int)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);
 
+		img4 = cv::cvarrToMat(pImg);
+
 		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)			//ループを抜ける
 		{
 			return -1;
@@ -203,6 +224,8 @@ int disp(int sti[TIMES], int timing[TIMES - 1],volatile int Count, cv::Mat img1,
 	{
 		QueryPerformanceCounter(&nAfter);
 		elap = (int)((nAfter.QuadPart - nBefore.QuadPart) * 1000 / nFreq.QuadPart);
+
+		img4 = cv::cvarrToMat(pImg);
 
 		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)			//ループを抜ける
 		{
@@ -231,8 +254,9 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 
 	static int fin = 0;			//終了フラグ
 	std::string subnm;			// 実験参加者名
+	int result;					//カメラ初期化の結果
 
-	cout << "---刺激変化検出実験3---" << endl;
+	cout << "---刺激変化検出実験---" << endl;
 	cout << "実験参加者=";
 	cin >> subnm;
 	cout << endl << endl << "画面中央に十字が表示されるのでそこを注視してください。" << endl <<"注視点(十)が表示された数秒後に刺激が表示されます。" << endl;
@@ -241,6 +265,7 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 	getchar();
 	getchar();
 
+	
 	// 回答情報記録準備
 	std::string fname;
 	//ファイル名の生成
@@ -253,6 +278,8 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 	cv::Mat img2 = make_window();
 	//まっさらな画像表示ウィンドウ
 	cv::Mat img3 = make_window();
+	//カメラ用ウィンドウ
+	cv::Mat img4 = make_camera_window();
 
 	setArrayEquality(preSti);		//位置指定配列作成
 	stiTiming(timing);				//時間指定配列作成
@@ -270,6 +297,9 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 	cv::imshow("image", img1);				//画面表示
 	cv::waitKey(50);
 	Sleep(4000);
+
+	CamLib.Run(CAMERA_NO);					//カメラ撮影開始
+	Sleep(20);
 	//画面表示用ループ
 	while (1) {
 
@@ -277,7 +307,7 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 		img2 = make_circle(img2, Count, preSti);
 
 		//画面表示
-		fin = disp(preSti, timing, Count, img1, img2, img3, fname);
+		fin = disp(preSti, timing, Count, img1, img2, img3, img4, fname);
 
 		Count++;
 
@@ -291,9 +321,11 @@ void show(int preSti[TIMES], int timing[TIMES - 1], int Count) {
 			break;
 		}
 	}
-
+	CamLib.Stop(CAMERA_NO);			//取り込み停止
 
 	//終了処理
+	//カメラの終了
+	close_ID04MB();
 	// すべてのwindowを破棄
 	cv::destroyAllWindows();
 }
@@ -365,5 +397,110 @@ void mark() {
 			k++;
 		}
 	}
+
+}
+
+
+
+//カメラ初期化関数
+int init_ID04MB()
+{
+	// IplImage *pImg;
+	// PVOID pCBuf;
+
+	// 画像取り込みバッファ確保
+	pImg = cvCreateImage(cvSize(640, 640), IPL_DEPTH_8U, 1);
+	pCBuf = (PVOID)new char[640 * 640];
+
+	// ライブラリ初期化
+	if (CamLib.Init()) {
+		cout << "ライブラリの初期化に失敗しました" << endl;
+		getchar();
+		return FALSE;
+	}
+
+	// パラメータセット
+	if (CamLib.SetParam((PVOID)pImg->imageData, pCBuf, (HANDLE)FrameEndEvent, (HANDLE)NULL)) {
+		cout << "パラメータの設定に失敗しました" << endl;
+		getchar();
+		return FALSE;
+	}
+
+	// カメラ接続
+	int ans = CamLib.Open(CAMERA_NO, UCLIB_CAPTUREMODE_NORMAL);
+	switch (ans) {
+	case UCLIB_OK:
+		//正常終了
+		break;
+	case UCLIB_ERR_CORRECT_DATA:
+		cout << "カメラの接続に失敗しました(補正データロード)" << endl;
+		getchar();
+		return FALSE;
+	case UCLIB_ERR_CAM_NOT_EXIST:
+		cout << "カメラの接続に失敗しました(アイドル無し)" << endl;
+		getchar();
+		return FALSE;
+	default:
+		cout << "カメラの接続に失敗しました" << endl;
+		getchar();
+		return FALSE;
+	}
+
+
+	ans = CamLib.SetVal(CAMERA_NO, 1, 4); // シャッタースピード1/500s(85fpsぐらい出ているはず)
+										  //ans = CamLib.SetVal(CAMERA_NO, 1, 5); // シャッタースピード1/1000s(89fpsぐらい出ているはず)
+										  //ans = CamLib.SetVal(CAMERA_NO, 1, 0);   // シャッタースピード1/42.3s(30fps)
+
+	if (ans == UCLIB_ERR) {
+		cout << "シャッタースピードの設定に失敗しました" << endl;
+		getchar();
+		return FALSE;
+	}
+	return 1;
+}
+
+
+
+//カメラ終了関数
+int close_ID04MB()
+{
+	int ans;
+	Sleep(250);
+	ans = CamLib.Close(CAMERA_NO);	//ライブラリ終了処理
+	delete[] pCBuf;
+	cvReleaseImage(&pImg);
+	return ans;
+}
+
+
+
+//カメラ用ウィンドウ作成関数
+cv::Mat make_camera_window() {
+	HWND handle;		//ウィンドウハンドル用変数
+						//imgの初期化
+	cv::Mat img(cv::Size(640, 640), CV_8UC3, cv::Scalar(255, 255, 255));
+	//ウィンドウへの名前付け
+	cv::namedWindow("Camera", CV_WINDOW_AUTOSIZE);
+	// ウィンドウを端に移動
+	cv::moveWindow("Camera", 0, 0);
+	handle = GetActiveWindow();			//ウィンドウハンドル取得
+	SetForegroundWindow(handle);		//アクティブウィンドウに変更
+	return img;
+}
+
+
+
+//画像取り込み表示関数
+void __stdcall FrameEndEvent(void *pInfo)
+{
+	//画像データはpImg(IplImage構造体)に書き込まれています。
+	//画像処理を行う場合、ここを編集してください。
+	cv::Mat img;
+	img = cv::cvarrToMat(pImg);
+	/* このサンプルでは画像を表示:OpenCV */
+	if (!cvGetWindowHandle("Camera"))		//表示ウィンドウ確認
+		return;
+	cv::imshow("Camera", img);			//描画
+
 
 }
